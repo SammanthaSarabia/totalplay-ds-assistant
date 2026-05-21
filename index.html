@@ -400,14 +400,20 @@ async function figmaGet(path) {
 
 async function loadFigmaData() {
   try {
-    // Load UI-Kit variables & components in parallel
-    const [uikitFile, iconsRaw] = await Promise.all([
-      figmaGet(`/files/${UIKIT_FILE}?depth=3`),
+    const [uikitRaw, iconsRaw] = await Promise.all([
+      figmaGet(`/files/${UIKIT_FILE}/components`),
       figmaGet(`/files/${ICONS_FILE}/components`)
     ]);
 
-    // Extract components from UI-Kit
-    const uikitComponents = extractComponents(uikitFile.document);
+    // UI-Kit: filter out variable/token components, keep real UI components
+    const uikitComponents = (uikitRaw.meta?.components || [])
+      .filter(c => {
+        const name = c.name.toLowerCase();
+        return !name.startsWith('color/') && !name.startsWith('font/') &&
+               !name.startsWith('space') && !name.startsWith('radius') &&
+               !name.startsWith('theme/') && !name.startsWith('primitives/');
+      })
+      .map(c => ({ id: c.node_id, name: c.name, type: 'COMPONENT', description: c.description || '', frame: c.containing_frame?.name || '' }));
     dsContext.components = uikitComponents;
 
     // Extract variables
@@ -420,7 +426,7 @@ async function loadFigmaData() {
     const styles = await figmaGet(`/files/${UIKIT_FILE}/styles`);
     dsContext.styles = styles.meta?.styles || [];
 
-    // Extract icons/media via /components endpoint — gets ALL
+    // Icons & Media: ALL components
     const iconsComponents = (iconsRaw.meta?.components || []).map(c => ({
       id: c.node_id, name: c.name, type: 'COMPONENT', description: c.description || ''
     }));
