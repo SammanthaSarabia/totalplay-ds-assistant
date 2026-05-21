@@ -400,20 +400,14 @@ async function figmaGet(path) {
 
 async function loadFigmaData() {
   try {
-    const [uikitRaw, iconsRaw] = await Promise.all([
-      figmaGet(`/files/${UIKIT_FILE}/components`),
-      figmaGet(`/files/${ICONS_FILE}/components`)
+    // Load UI-Kit variables & components in parallel
+    const [uikitFile, iconsFile] = await Promise.all([
+      figmaGet(`/files/${UIKIT_FILE}?depth=2`),
+      figmaGet(`/files/${ICONS_FILE}?depth=2`)
     ]);
 
-    // UI-Kit: filter out variable/token components, keep real UI components
-    const uikitComponents = (uikitRaw.meta?.components || [])
-      .filter(c => {
-        const name = c.name.toLowerCase();
-        return !name.startsWith('color/') && !name.startsWith('font/') &&
-               !name.startsWith('space') && !name.startsWith('radius') &&
-               !name.startsWith('theme/') && !name.startsWith('primitives/');
-      })
-      .map(c => ({ id: c.node_id, name: c.name, type: 'COMPONENT', description: c.description || '', frame: c.containing_frame?.name || '' }));
+    // Extract components from UI-Kit
+    const uikitComponents = extractComponents(uikitFile.document);
     dsContext.components = uikitComponents;
 
     // Extract variables
@@ -426,10 +420,8 @@ async function loadFigmaData() {
     const styles = await figmaGet(`/files/${UIKIT_FILE}/styles`);
     dsContext.styles = styles.meta?.styles || [];
 
-    // Icons & Media: ALL components
-    const iconsComponents = (iconsRaw.meta?.components || []).map(c => ({
-      id: c.node_id, name: c.name, type: 'COMPONENT', description: c.description || ''
-    }));
+    // Extract icons/media components
+    const iconsComponents = extractComponents(iconsFile.document);
     dsContext.icons = iconsComponents;
 
     // Update UI
@@ -447,14 +439,10 @@ async function loadFigmaData() {
     const iconsPills = document.getElementById('icons-pills');
     const iconGroups = {};
     iconsComponents.forEach(c => {
-      const parts = c.name.split('/');
-      const group = parts[0].trim() || 'otros';
+      const group = c.name.split('/')[0] || 'otros';
       iconGroups[group] = (iconGroups[group] || 0) + 1;
     });
-    const topGroups = Object.entries(iconGroups)
-      .sort((a,b) => b[1]-a[1])
-      .slice(0,5);
-    iconsPills.innerHTML = topGroups.map(([k,v]) => `<span class="pill">${k} (${v})</span>`).join('');
+    iconsPills.innerHTML = Object.entries(iconGroups).slice(0,4).map(([k,v]) => `<span class="pill">${k} (${v})</span>`).join('');
 
     renderLibraryView();
 
@@ -524,41 +512,38 @@ function renderLibraryView() {
 
 // ── Claude API ────────────────────────────────────────────────────────────────
 function buildSystemPrompt() {
-  const compList = dsContext.components.slice(0,150).map(c => `- ${c.name}${c.description ? ': '+c.description : ''}`).join('\n');
-  const iconList = dsContext.icons.map(c => `- ${c.name}`).join('\n');
-  const varList = dsContext.variables.slice(0,100).map(v => `- [${v.collection}] ${v.name} (${v.type})`).join('\n');
+  const compList = dsContext.components.slice(0,80).map(c => `- ${c.name}${c.description ? ': '+c.description : ''}`).join('\n');
+  const iconList = dsContext.icons.slice(0,80).map(c => `- ${c.name}`).join('\n');
+  const varList = dsContext.variables.slice(0,80).map(v => `- [${v.collection}] ${v.name} (${v.type})`).join('\n');
   const styleList = dsContext.styles.slice(0,40).map(s => `- ${s.name}: ${s.style_type}`).join('\n');
 
   return `Eres el asistente del Design System de Totalplay. Ayudas a diseñadores y desarrolladores a encontrar componentes, íconos, colores y variables en las librerías de Figma.
-
-IMPORTANTE: Cuando el usuario pregunte por algo, busca exhaustivamente en TODAS las listas antes de decir que no existe. Usa búsqueda parcial — si alguien pide "crossmedia", busca cualquier elemento que contenga "cross", "media", "crossmedia" en su nombre.
 
 LIBRERÍAS DISPONIBLES:
 - UI-Kit App (file: ${UIKIT_FILE}) — componentes de UI, variables de diseño
 - Icons & Media (file: ${ICONS_FILE}) — íconos, logos, imágenes, covers
 
-COMPONENTES EN UI-KIT (${dsContext.components.length} total):
-${compList}
+COMPONENTES EN UI-KIT:
+${compList || 'Cargando...'}
 
-TODOS LOS ELEMENTOS EN ICONS & MEDIA (${dsContext.icons.length} total):
-${iconList}
+ELEMENTOS EN ICONS & MEDIA:
+${iconList || 'Cargando...'}
 
 VARIABLES:
-${varList}
+${varList || 'Cargando...'}
 
 ESTILOS:
-${styleList}
+${styleList || 'Cargando...'}
 
 INSTRUCCIONES:
 - Responde en español, de forma concisa y útil
-- SIEMPRE busca en toda la lista antes de decir que algo no existe
-- Cuando encuentres un elemento incluye el link: https://www.figma.com/file/FILE_KEY?node-id=NODE_ID
+- Cuando encuentres un componente o elemento, incluye siempre el link a Figma en formato: https://www.figma.com/file/FILE_KEY?node-id=NODE_ID
 - Para UI-Kit usa file key: ${UIKIT_FILE}
-- Para Icons & Media usa file key: ${ICONS_FILE}  
-- Si el usuario sube una imagen, analiza qué elemento del DS se parece más
-- Si algo genuinamente no existe, dilo claramente y sugiere agregarlo a "En radar"
-- Para tokens de color, da el nombre semántico y el valor resuelto
-- Nunca inventes elementos que no estén en las listas — pero busca bien antes de negar`;
+- Para Icons & Media usa file key: ${ICONS_FILE}
+- Si el usuario sube una imagen, analiza qué elemento del DS se parece más a lo que muestra
+- Si algo no existe en la librería, dilo claramente y sugiere agregarlo a "En radar"
+- Para preguntas de tokens de color, da el nombre semántico (color/primary) y el valor resuelto
+- Sé directo: si existe, di dónde está; si no existe, dilo`;
 }
 
 async function callClaude(userText, imageBase64 = null) {
