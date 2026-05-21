@@ -582,12 +582,15 @@ async function callClaude(userText, imageBase64 = null) {
 // ── Component image fetcher ───────────────────────────────────────────────────
 async function fetchComponentImage(fileId, nodeId) {
   try {
-    const res = await fetch(`/api/claude?figma_image=1&file_id=${fileId}&node_id=${encodeURIComponent(nodeId)}`, {
+    // Figma images API expects node IDs with : not -
+    const normalizedId = nodeId.replace(/-/g, ':');
+    const res = await fetch(`/api/claude?figma_image=1&file_id=${fileId}&node_id=${encodeURIComponent(normalizedId)}`, {
       headers: { 'x-figma-key': FIGMA_TOKEN }
     });
     const data = await res.json();
     const images = data.images || {};
-    return images[nodeId] || null;
+    // Try both formats as key
+    return images[normalizedId] || images[nodeId] || Object.values(images)[0] || null;
   } catch(e) {
     return null;
   }
