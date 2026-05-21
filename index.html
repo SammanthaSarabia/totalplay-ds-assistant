@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Totalplay DS Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --brand-red: #E8003D;
+    --brand-orange: #FF6B00;
+    --brand-yellow: #FFD600;
+    --brand-green: #00B140;
+    --brand-blue: #0057B8;
+    --brand-purple: #7B2D8B;
+    --accent: #5838d0;
+    --accent-light: #EEEDFE;
+    --accent-text: #3C3489;
+    --bg: #f5f4f0;
+    --surface: #ffffff;
+    --surface2: #f9f8f6;
+    --border: rgba(0,0,0,0.08);
+    --border2: rgba(0,0,0,0.14);
+    --text: #111;
+    --text2: #555;
+    --text3: #999;
+    --radar-bg: #FAEEDA;
+    --radar-border: #EF9F27;
+    --radar-text: #633806;
+    --font: 'Montserrat', sans-serif;
+    --mono: 'DM Mono', monospace;
+    --radius: 10px;
+    --radius-lg: 14px;
+  }
+
+  html, body { height: 100%; background: var(--bg); font-family: var(--font); color: var(--text); }
+
+  .app { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
+
+  /* ── Top bar ── */
+  .topbar { background: var(--surface); border-bottom: 1px solid var(--border); }
+  .gradient-bar { height: 3px; background: linear-gradient(90deg, var(--brand-red), var(--brand-orange), var(--brand-yellow), var(--brand-green), var(--brand-blue), var(--brand-purple)); }
+  .topbar-inner { display: flex; align-items: center; gap: 16px; padding: 0 20px; height: 52px; }
+  .logo { font-size: 13px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
+  .logo span { color: var(--text3); font-weight: 500; }
+  .tabs { display: flex; gap: 2px; margin-left: auto; }
+  .tab { font-size: 12px; font-weight: 500; padding: 6px 14px; border-radius: 8px; border: 1px solid transparent; color: var(--text2); cursor: pointer; transition: all 0.15s; background: none; font-family: var(--font); }
+  .tab:hover { background: var(--surface2); }
+  .tab.active { background: var(--accent-light); color: var(--accent-text); border-color: rgba(88,56,208,0.2); }
+  .tab.radar-tab { color: var(--radar-text); }
+  .tab.radar-tab.active { background: var(--radar-bg); border-color: var(--radar-border); }
+  .badge { display: inline-flex; align-items: center; justify-content: center; background: var(--brand-orange); color: #fff; font-size: 10px; font-weight: 700; width: 16px; height: 16px; border-radius: 50%; margin-left: 4px; }
+
+  /* ── Main layout ── */
+  .main { display: grid; grid-template-columns: 1fr 280px; overflow: hidden; }
+
+  /* ── Chat ── */
+  .chat-wrap { display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid var(--border); }
+  .messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+  .messages::-webkit-scrollbar { width: 4px; }
+  .messages::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  .msg { display: flex; gap: 10px; align-items: flex-start; animation: fadeUp 0.2s ease; }
+  .msg.user { flex-direction: row-reverse; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  .avatar { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+  .avatar.ds { background: var(--accent-light); color: var(--accent-text); }
+  .avatar.user { background: #E1F5EE; color: #085041; }
+
+  .bubble { max-width: 78%; padding: 10px 14px; border-radius: 12px; font-size: 13px; line-height: 1.6; }
+  .bubble.ds { background: var(--surface); border: 1px solid var(--border); border-top-left-radius: 3px; }
+  .bubble.user { background: var(--accent); color: #fff; border-top-right-radius: 3px; }
+
+  .result-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-top: 8px; display: flex; align-items: center; gap: 10px; }
+  .result-thumb { width: 36px; height: 36px; border-radius: 6px; background: var(--bg); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; overflow: hidden; }
+  .result-thumb img { width: 100%; height: 100%; object-fit: contain; }
+  .result-info { flex: 1; min-width: 0; }
+  .result-name { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .result-sub { font-size: 11px; color: var(--text3); margin-top: 1px; }
+  .result-link { font-size: 11px; color: var(--accent); text-decoration: none; font-weight: 500; white-space: nowrap; }
+  .result-link:hover { text-decoration: underline; }
+
+  .token-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; margin-top: 6px; }
+  .color-swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--border2); flex-shrink: 0; }
+  .token-name { font-family: var(--mono); font-size: 11px; color: var(--text2); }
+  .token-val { font-size: 11px; color: var(--text3); }
+
+  .typing { display: flex; gap: 4px; align-items: center; padding: 12px 14px; }
+  .typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--text3); animation: bounce 1.2s infinite; }
+  .typing span:nth-child(2) { animation-delay: 0.2s; }
+  .typing span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-5px); } }
+
+  /* ── Input area ── */
+  .input-area { padding: 14px 20px; border-top: 1px solid var(--border); background: var(--surface); }
+  .input-row { display: flex; gap: 8px; align-items: flex-end; }
+  .input-box { flex: 1; }
+  .input-box textarea { width: 100%; resize: none; font-family: var(--font); font-size: 13px; padding: 10px 12px; border: 1px solid var(--border2); border-radius: 10px; background: var(--surface2); color: var(--text); outline: none; line-height: 1.5; transition: border-color 0.15s; }
+  .input-box textarea:focus { border-color: var(--accent); }
+  .input-actions { display: flex; gap: 6px; align-items: center; }
+  .btn-icon { width: 36px; height: 36px; border-radius: 9px; border: 1px solid var(--border2); background: var(--surface); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; color: var(--text2); transition: all 0.15s; }
+  .btn-icon:hover { background: var(--surface2); color: var(--text); }
+  .btn-send { width: 36px; height: 36px; border-radius: 9px; border: none; background: var(--accent); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; color: #fff; transition: opacity 0.15s; }
+  .btn-send:hover { opacity: 0.85; }
+  .btn-send:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .quick-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .qchip { font-size: 11px; padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border2); background: var(--surface); color: var(--text2); cursor: pointer; font-family: var(--font); transition: all 0.15s; }
+  .qchip:hover { background: var(--accent-light); color: var(--accent-text); border-color: rgba(88,56,208,0.3); }
+
+  /* ── Image upload preview ── */
+  .img-preview { position: relative; display: inline-block; margin-top: 8px; }
+  .img-preview img { max-height: 120px; max-width: 200px; border-radius: 8px; border: 1px solid var(--border2); display: block; }
+  .img-preview .remove-img { position: absolute; top: -6px; right: -6px; width: 18px; height: 18px; border-radius: 50%; background: var(--text); color: #fff; border: none; cursor: pointer; font-size: 11px; display: flex; align-items: center; justify-content: center; }
+
+  /* ── Sidebar ── */
+  .sidebar { background: var(--surface2); overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+
+  .section-label { font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+
+  .lib-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .lib-name { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+  .lib-meta { font-size: 11px; color: var(--text3); }
+  .lib-status { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; color: #085041; background: #E1F5EE; border-radius: 4px; padding: 2px 7px; margin-top: 6px; font-weight: 600; }
+  .lib-status.loading { color: var(--text3); background: var(--bg); }
+  .lib-status .dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+  .lib-pills { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 8px; }
+  .pill { font-size: 10px; padding: 2px 8px; border-radius: 4px; background: var(--bg); border: 1px solid var(--border); color: var(--text2); }
+
+  /* ── Radar tab ── */
+  .radar-wrap { padding: 20px; overflow-y: auto; }
+  .radar-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .radar-title { font-size: 16px; font-weight: 700; color: var(--text); }
+  .btn-add { font-size: 12px; font-weight: 600; padding: 7px 14px; border-radius: 8px; border: none; background: var(--accent); color: #fff; cursor: pointer; font-family: var(--font); }
+  .radar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .radar-card { background: var(--surface); border: 1px solid var(--radar-border); border-radius: var(--radius-lg); overflow: hidden; }
+  .radar-img { height: 120px; background: var(--radar-bg); display: flex; align-items: center; justify-content: center; font-size: 36px; border-bottom: 1px solid var(--radar-border); overflow: hidden; }
+  .radar-img img { width: 100%; height: 100%; object-fit: cover; }
+  .radar-body { padding: 10px 12px; }
+  .radar-name { font-size: 12px; font-weight: 600; color: var(--text); }
+  .radar-note { font-size: 11px; color: var(--text3); margin-top: 3px; }
+  .radar-meta { font-size: 10px; color: var(--radar-text); margin-top: 6px; font-weight: 500; }
+  .radar-empty { text-align: center; padding: 60px 20px; color: var(--text3); font-size: 13px; }
+  .radar-empty .icon { font-size: 40px; margin-bottom: 12px; }
+
+  /* ── Upload modal ── */
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 100; }
+  .modal { background: var(--surface); border-radius: var(--radius-lg); padding: 24px; width: 420px; }
+  .modal h3 { font-size: 15px; font-weight: 700; margin-bottom: 16px; }
+  .modal input[type=text], .modal textarea { width: 100%; font-family: var(--font); font-size: 13px; padding: 9px 12px; border: 1px solid var(--border2); border-radius: 8px; margin-bottom: 10px; outline: none; background: var(--surface2); color: var(--text); }
+  .modal textarea { resize: none; height: 70px; }
+  .drop-zone { border: 2px dashed var(--border2); border-radius: 10px; padding: 30px; text-align: center; cursor: pointer; transition: border-color 0.15s; margin-bottom: 12px; }
+  .drop-zone:hover, .drop-zone.dragover { border-color: var(--accent); background: var(--accent-light); }
+  .drop-zone p { font-size: 12px; color: var(--text3); margin-top: 6px; }
+  .drop-zone .icon { font-size: 28px; }
+  .drop-zone img { max-height: 80px; border-radius: 6px; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+  .btn-cancel { font-size: 12px; padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border2); background: none; cursor: pointer; font-family: var(--font); color: var(--text2); }
+  .btn-confirm { font-size: 12px; padding: 8px 16px; border-radius: 8px; border: none; background: var(--accent); color: #fff; cursor: pointer; font-family: var(--font); font-weight: 600; }
+
+  .hidden { display: none !important; }
+
+  /* ── Drag & drop overlay ── */
+  .drop-overlay { display: none; position: fixed; inset: 0; z-index: 200; background: rgba(88,56,208,0.08); border: 3px dashed var(--accent); border-radius: 16px; pointer-events: none; align-items: center; justify-content: center; flex-direction: column; gap: 12px; }
+  .drop-overlay.active { display: flex; }
+  .drop-overlay-icon { font-size: 48px; }
+  .drop-overlay-text { font-size: 16px; font-weight: 600; color: var(--accent); }
+
+  /* ── Chat drag highlight ── */
+  .chat-wrap.dragover .input-box textarea { border-color: var(--accent); background: var(--accent-light); }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="topbar">
+    <div class="gradient-bar"></div>
+    <div class="topbar-inner">
+      <div class="logo">⬡ Totalplay <span>DS Assistant</span></div>
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('chat')">Chat</button>
+        <button class="tab" onclick="switchTab('library')">Librería</button>
+        <button class="tab radar-tab" onclick="switchTab('radar')">En radar <span class="badge" id="radar-badge">0</span></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <!-- Chat tab -->
+    <div id="tab-chat" class="chat-wrap">
+      <div class="messages" id="messages"></div>
+      <div class="input-area">
+        <div id="img-preview-wrap"></div>
+        <div class="input-row">
+          <div class="input-box">
+            <textarea id="input" rows="1" placeholder="Pregunta sobre componentes, íconos, colores..." onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+          </div>
+          <div class="input-actions">
+            <input type="file" id="file-input" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
+            <button class="btn-icon" onclick="document.getElementById('file-input').click()" title="Subir imagen para búsqueda visual">📎</button>
+            <button class="btn-send" id="btn-send" onclick="sendMessage()">↑</button>
+          </div>
+        </div>
+        <div class="quick-chips">
+          <button class="qchip" onclick="askQuick('¿Tenemos un componente de tabs?')">¿Componente de tabs?</button>
+          <button class="qchip" onclick="askQuick('¿Qué color de texto va sobre color/primary?')">Color sobre primary</button>
+          <button class="qchip" onclick="askQuick('¿Cuál es el radius de los botones?')">Radius de botones</button>
+          <button class="qchip" onclick="askQuick('¿Tenemos el logo de Totalplay en blanco?')">Logo en blanco</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Library tab (full width) -->
+    <div id="tab-library" class="hidden chat-wrap" style="border-right:none;">
+      <div class="messages" id="lib-content" style="padding:20px;">
+        <p style="font-size:13px;color:var(--text3)">Cargando librería...</p>
+      </div>
+    </div>
+
+    <!-- Radar tab (full width) -->
+    <div id="tab-radar" class="hidden radar-wrap" style="grid-column:1/-1;">
+      <div class="radar-header">
+        <div class="radar-title">🔭 En radar</div>
+        <button class="btn-add" onclick="openModal()">+ Agregar elemento</button>
+      </div>
+      <div class="radar-grid" id="radar-grid">
+        <div class="radar-empty">
+          <div class="icon">🔭</div>
+          <p>Aún no hay elementos en radar.<br>Agrega cosas que el equipo necesita y no están en la librería.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sidebar (only visible in chat) -->
+    <div id="sidebar" class="sidebar">
+      <div>
+        <div class="section-label">Librerías</div>
+        <div class="lib-card" style="margin-bottom:8px">
+          <div class="lib-name">📱 UI-Kit App</div>
+          <div class="lib-meta">Componentes y variables</div>
+          <div class="lib-status loading" id="uikit-status"><div class="dot"></div> Conectando...</div>
+          <div class="lib-pills" id="uikit-pills"></div>
+        </div>
+        <div class="lib-card">
+          <div class="lib-name">🖼️ Icons & Media</div>
+          <div class="lib-meta">Íconos, logos, covers</div>
+          <div class="lib-status loading" id="icons-status"><div class="dot"></div> Conectando...</div>
+          <div class="lib-pills" id="icons-pills"></div>
+        </div>
+      </div>
+      <div>
+        <div class="section-label">Acceso rápido</div>
+        <button class="qchip" style="width:100%;text-align:left;padding:8px 10px;border-radius:8px;margin-bottom:4px" onclick="askQuick('Lista todos los componentes disponibles en la librería UI-Kit App')">📋 Ver todos los componentes</button>
+        <button class="qchip" style="width:100%;text-align:left;padding:8px 10px;border-radius:8px;margin-bottom:4px" onclick="askQuick('Muéstrame todos los tokens de color disponibles')">🎨 Ver tokens de color</button>
+        <button class="qchip" style="width:100%;text-align:left;padding:8px 10px;border-radius:8px" onclick="askQuick('Muéstrame los estilos tipográficos disponibles')">🔤 Ver tipografías</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Drag & drop overlay -->
+<div class="drop-overlay" id="drop-overlay">
+  <div class="drop-overlay-icon">🖼️</div>
+  <div class="drop-overlay-text">Suelta la imagen para buscar en la librería</div>
+</div>
+
+<!-- Setup screen -->
+<div id="setup-screen" class="modal-bg hidden">
+  <div class="modal" style="width:480px">
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:28px;margin-bottom:8px">⬡</div>
+      <h3 style="font-size:16px;font-weight:700">Configuración inicial</h3>
+      <p style="font-size:12px;color:var(--text3);margin-top:4px">Tus tokens se guardan solo en este browser, nunca en el código.</p>
+    </div>
+    <label style="font-size:11px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px">Token de Figma</label>
+    <input type="password" id="setup-figma" placeholder="figd_..." style="margin-bottom:14px">
+    <label style="font-size:11px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px">API Key de Claude</label>
+    <input type="password" id="setup-claude" placeholder="sk-ant-...">
+    <div class="modal-actions" style="margin-top:16px">
+      <button class="btn-confirm" style="width:100%" onclick="saveSetup()">Guardar y continuar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add to radar modal -->
+<div class="modal-bg hidden" id="modal">
+  <div class="modal">
+    <h3>Agregar a radar</h3>
+    <input type="text" id="modal-name" placeholder="Nombre del elemento (ej. Ícono de subtítulos CC)">
+    <textarea id="modal-note" placeholder="Descripción o contexto de uso..."></textarea>
+    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('modal-file').click()" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
+      <div id="dz-content">
+        <div class="icon">📸</div>
+        <p>Arrastra una imagen de referencia o haz clic para seleccionar</p>
+      </div>
+    </div>
+    <input type="file" id="modal-file" accept="image/*" style="display:none" onchange="previewRadarImg(event)">
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-confirm" onclick="addToRadar()">Agregar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Config ──────────────────────────────────────────────────────────────────
+const FIGMA_TOKEN = localStorage.getItem('ds_figma_token') || '';
+const CLAUDE_KEY = localStorage.getItem('ds_claude_key') || '';
+const UIKIT_FILE = '8fLgVC9li8g4IHsrpFCfhM';
+const ICONS_FILE = '0UhcQC09K2lce5QeFKSoJ6';
+const FIGMA_BASE = 'https://api.figma.com/v1';
+const CLAUDE_API = 'https://api.anthropic.com/v1/messages';
+
+// ── State ────────────────────────────────────────────────────────────────────
+let dsContext = { components: [], variables: [], styles: [], icons: [] };
+let radarItems = JSON.parse(localStorage.getItem('ds-radar') || '[]');
+let pendingImage = null;
+let pendingImageBase64 = null;
+let isLoading = false;
+let currentTab = 'chat';
+
+// ── Drag & drop on chat ──────────────────────────────────────────────────────
+const dropOverlay = document.getElementById('drop-overlay');
+const chatWrap = document.querySelector('.chat-wrap');
+
+document.addEventListener('dragenter', (e) => {
+  if (currentTab !== 'chat') return;
+  if (e.dataTransfer.types.includes('Files')) {
+    dropOverlay.classList.add('active');
+    chatWrap.classList.add('dragover');
+  }
+});
+
+document.addEventListener('dragover', (e) => {
+  e.preventDefault();
+});
+
+document.addEventListener('dragleave', (e) => {
+  if (!e.relatedTarget || e.relatedTarget === document.documentElement) {
+    dropOverlay.classList.remove('active');
+    chatWrap.classList.remove('dragover');
+  }
+});
+
+document.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropOverlay.classList.remove('active');
+  chatWrap.classList.remove('dragover');
+  if (currentTab !== 'chat') return;
+  const file = e.dataTransfer.files[0];
+  if (!file || !file.type.startsWith('image/')) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    pendingImage = ev.target.result;
+    pendingImageBase64 = ev.target.result.split(',')[1];
+    const wrap = document.getElementById('img-preview-wrap');
+    wrap.innerHTML = `
+      <div class="img-preview">
+        <img src="${pendingImage}">
+        <button class="remove-img" onclick="clearImagePreview()">✕</button>
+      </div>`;
+    document.getElementById('input').focus();
+  };
+  reader.readAsDataURL(file);
+});
+
+function saveSetup() {
+  const figma = document.getElementById('setup-figma').value.trim();
+  const claude = document.getElementById('setup-claude').value.trim();
+  if (!figma || !claude) { alert('Ingresa ambos tokens para continuar.'); return; }
+  localStorage.setItem('ds_figma_token', figma);
+  localStorage.setItem('ds_claude_key', claude);
+  location.reload();
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  if (!FIGMA_TOKEN || !CLAUDE_KEY) {
+    document.getElementById('setup-screen').classList.remove('hidden');
+    return;
+  }
+  updateRadarBadge();
+  renderRadar();
+  addMessage('ds', 'Hola 👋 Soy el asistente del Design System de Totalplay. Puedo ayudarte a encontrar componentes, íconos, logos, colores y responder dudas sobre cómo usar la librería.\n\nTambién puedes subir una imagen 📎 y busco si tenemos algo parecido.');
+  loadFigmaData();
+});
+
+// ── Figma API ─────────────────────────────────────────────────────────────────
+async function figmaGet(path) {
+  const res = await fetch(`${FIGMA_BASE}${path}`, {
+    headers: { 'X-Figma-Token': FIGMA_TOKEN }
+  });
+  if (!res.ok) throw new Error(`Figma API error: ${res.status}`);
+  return res.json();
+}
+
+async function loadFigmaData() {
+  try {
+    // Load UI-Kit variables & components in parallel
+    const [uikitFile, iconsFile] = await Promise.all([
+      figmaGet(`/files/${UIKIT_FILE}?depth=2`),
+      figmaGet(`/files/${ICONS_FILE}?depth=2`)
+    ]);
+
+    // Extract components from UI-Kit
+    const uikitComponents = extractComponents(uikitFile.document);
+    dsContext.components = uikitComponents;
+
+    // Extract variables
+    try {
+      const vars = await figmaGet(`/files/${UIKIT_FILE}/variables/local`);
+      dsContext.variables = processVariables(vars);
+    } catch(e) { console.warn('Variables not accessible:', e); }
+
+    // Extract styles
+    const styles = await figmaGet(`/files/${UIKIT_FILE}/styles`);
+    dsContext.styles = styles.meta?.styles || [];
+
+    // Extract icons/media components
+    const iconsComponents = extractComponents(iconsFile.document);
+    dsContext.icons = iconsComponents;
+
+    // Update UI
+    setLibStatus('uikit-status', true, `${uikitComponents.length} componentes`);
+    setLibStatus('icons-status', true, `${iconsComponents.length} elementos`);
+
+    const uikitPills = document.getElementById('uikit-pills');
+    const counts = { color: 0, font: 0, space: 0, radius: 0 };
+    dsContext.variables.forEach(v => {
+      const k = Object.keys(counts).find(c => v.collection?.toLowerCase().includes(c));
+      if (k) counts[k]++;
+    });
+    uikitPills.innerHTML = Object.entries(counts).map(([k,v]) => v > 0 ? `<span class="pill">${k} (${v})</span>` : '').join('');
+
+    const iconsPills = document.getElementById('icons-pills');
+    const iconGroups = {};
+    iconsComponents.forEach(c => {
+      const group = c.name.split('/')[0] || 'otros';
+      iconGroups[group] = (iconGroups[group] || 0) + 1;
+    });
+    iconsPills.innerHTML = Object.entries(iconGroups).slice(0,4).map(([k,v]) => `<span class="pill">${k} (${v})</span>`).join('');
+
+    renderLibraryView();
+
+  } catch(e) {
+    console.error('Figma load error:', e);
+    setLibStatus('uikit-status', false, 'Error al conectar');
+    setLibStatus('icons-status', false, 'Error al conectar');
+  }
+}
+
+function extractComponents(node, list = []) {
+  if (!node) return list;
+  if (node.type === 'COMPONENT' || node.type === 'COMPONENT_SET') {
+    list.push({ id: node.id, name: node.name, type: node.type, description: node.description || '' });
+  }
+  if (node.children) node.children.forEach(c => extractComponents(c, list));
+  return list;
+}
+
+function processVariables(data) {
+  if (!data || !data.meta) return [];
+  const { variables, variableCollections } = data.meta;
+  const collections = {};
+  Object.values(variableCollections || {}).forEach(c => { collections[c.id] = c.name; });
+  return Object.values(variables || {}).map(v => ({
+    id: v.id, name: v.name,
+    collection: collections[v.variableCollectionId] || '',
+    type: v.resolvedType,
+    values: v.valuesByMode
+  }));
+}
+
+function setLibStatus(id, ok, text) {
+  const el = document.getElementById(id);
+  el.className = `lib-status ${ok ? '' : 'loading'}`;
+  el.innerHTML = `<div class="dot"></div> ${text}`;
+}
+
+function renderLibraryView() {
+  const container = document.getElementById('lib-content');
+  const groups = {};
+  [...dsContext.components, ...dsContext.icons].forEach(c => {
+    const group = c.name.split('/')[0] || 'Sin grupo';
+    if (!groups[group]) groups[group] = [];
+    groups[group].push(c);
+  });
+
+  container.innerHTML = `
+    <h2 style="font-size:16px;font-weight:700;margin-bottom:16px">Todos los elementos</h2>
+    ${Object.entries(groups).map(([group, items]) => `
+      <div style="margin-bottom:20px">
+        <div class="section-label" style="margin-bottom:8px">${group} (${items.length})</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">
+          ${items.slice(0,20).map(c => `
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer" onclick="askQuick('Cuéntame sobre el componente: ${c.name.replace(/'/g,"\\'")}')">
+              <div style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.name}</div>
+              ${c.description ? `<div style="font-size:11px;color:var(--text3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.description}</div>` : ''}
+              <a href="https://www.figma.com/file/${UIKIT_FILE}?node-id=${c.id}" target="_blank" style="font-size:11px;color:var(--accent);text-decoration:none;margin-top:4px;display:block">Ver en Figma →</a>
+            </div>
+          `).join('')}
+          ${items.length > 20 ? `<div style="font-size:11px;color:var(--text3);padding:10px">+${items.length-20} más...</div>` : ''}
+        </div>
+      </div>
+    `).join('')}
+  `;
+}
+
+// ── Claude API ────────────────────────────────────────────────────────────────
+function buildSystemPrompt() {
+  const compList = dsContext.components.slice(0,80).map(c => `- ${c.name}${c.description ? ': '+c.description : ''}`).join('\n');
+  const iconList = dsContext.icons.slice(0,80).map(c => `- ${c.name}`).join('\n');
+  const varList = dsContext.variables.slice(0,80).map(v => `- [${v.collection}] ${v.name} (${v.type})`).join('\n');
+  const styleList = dsContext.styles.slice(0,40).map(s => `- ${s.name}: ${s.style_type}`).join('\n');
+
+  return `Eres el asistente del Design System de Totalplay. Ayudas a diseñadores y desarrolladores a encontrar componentes, íconos, colores y variables en las librerías de Figma.
+
+LIBRERÍAS DISPONIBLES:
+- UI-Kit App (file: ${UIKIT_FILE}) — componentes de UI, variables de diseño
+- Icons & Media (file: ${ICONS_FILE}) — íconos, logos, imágenes, covers
+
+COMPONENTES EN UI-KIT:
+${compList || 'Cargando...'}
+
+ELEMENTOS EN ICONS & MEDIA:
+${iconList || 'Cargando...'}
+
+VARIABLES:
+${varList || 'Cargando...'}
+
+ESTILOS:
+${styleList || 'Cargando...'}
+
+INSTRUCCIONES:
+- Responde en español, de forma concisa y útil
+- Cuando encuentres un componente o elemento, incluye siempre el link a Figma en formato: https://www.figma.com/file/FILE_KEY?node-id=NODE_ID
+- Para UI-Kit usa file key: ${UIKIT_FILE}
+- Para Icons & Media usa file key: ${ICONS_FILE}
+- Si el usuario sube una imagen, analiza qué elemento del DS se parece más a lo que muestra
+- Si algo no existe en la librería, dilo claramente y sugiere agregarlo a "En radar"
+- Para preguntas de tokens de color, da el nombre semántico (color/primary) y el valor resuelto
+- Sé directo: si existe, di dónde está; si no existe, dilo`;
+}
+
+async function callClaude(userText, imageBase64 = null) {
+  const content = [];
+  if (imageBase64) {
+    content.push({ type: 'image', source: { type: 'base64', media_type: 'image/png', data: imageBase64 } });
+  }
+  content.push({ type: 'text', text: userText });
+
+  const res = await fetch(CLAUDE_API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': CLAUDE_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      system: buildSystemPrompt(),
+      messages: [{ role: 'user', content }]
+    })
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || `API error ${res.status}`);
+  }
+
+  const data = await res.json();
+  return data.content?.[0]?.text || 'Sin respuesta';
+}
+
+// ── Chat ──────────────────────────────────────────────────────────────────────
+function addMessage(role, text, imgSrc = null) {
+  const msgs = document.getElementById('messages');
+  const initials = role === 'ds' ? 'DS' : 'TÚ';
+  const div = document.createElement('div');
+  div.className = `msg ${role === 'user' ? 'user' : ''}`;
+  div.innerHTML = `
+    <div class="avatar ${role}">${initials}</div>
+    <div class="bubble ${role}">
+      ${imgSrc ? `<img src="${imgSrc}" style="max-height:100px;border-radius:6px;display:block;margin-bottom:8px">` : ''}
+      ${formatMessage(text)}
+    </div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function formatMessage(text) {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`(.*?)`/g, '<code style="font-family:var(--mono);font-size:11px;background:var(--surface2);padding:1px 5px;border-radius:3px">$1</code>')
+    .replace(/(https:\/\/www\.figma\.com\/[^\s<]+)/g, '<a href="$1" target="_blank" class="result-link">Ver en Figma →</a>')
+    .replace(/\n/g, '<br>');
+}
+
+function addTyping() {
+  const msgs = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = 'msg';
+  div.id = 'typing-indicator';
+  div.innerHTML = `<div class="avatar ds">DS</div><div class="bubble ds"><div class="typing"><span></span><span></span><span></span></div></div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function removeTyping() {
+  document.getElementById('typing-indicator')?.remove();
+}
+
+async function sendMessage() {
+  const input = document.getElementById('input');
+  const text = input.value.trim();
+  if (!text && !pendingImageBase64) return;
+  if (isLoading) return;
+
+  isLoading = true;
+  document.getElementById('btn-send').disabled = true;
+
+  const imgSrc = pendingImage;
+  const imgB64 = pendingImageBase64;
+  const userText = text || (imgSrc ? '¿Tenemos algo parecido a esto en la librería?' : '');
+
+  addMessage('user', userText, imgSrc);
+  input.value = '';
+  input.style.height = 'auto';
+  clearImagePreview();
+  addTyping();
+
+  try {
+    const response = await callClaude(userText, imgB64);
+    removeTyping();
+    addMessage('ds', response);
+  } catch(e) {
+    removeTyping();
+    addMessage('ds', `Hubo un error al consultar: ${e.message}. Verifica que el API key de Claude esté configurado en el archivo .env`);
+  }
+
+  isLoading = false;
+  document.getElementById('btn-send').disabled = false;
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function askQuick(text) {
+  switchTab('chat');
+  document.getElementById('input').value = text;
+  sendMessage();
+}
+
+// ── Image upload ──────────────────────────────────────────────────────────────
+function handleImageUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    pendingImage = ev.target.result;
+    pendingImageBase64 = ev.target.result.split(',')[1];
+    const wrap = document.getElementById('img-preview-wrap');
+    wrap.innerHTML = `
+      <div class="img-preview">
+        <img src="${pendingImage}">
+        <button class="remove-img" onclick="clearImagePreview()">✕</button>
+      </div>`;
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+}
+
+function clearImagePreview() {
+  pendingImage = null;
+  pendingImageBase64 = null;
+  document.getElementById('img-preview-wrap').innerHTML = '';
+}
+
+// ── Radar ─────────────────────────────────────────────────────────────────────
+let radarImgData = null;
+
+function openModal() { document.getElementById('modal').classList.remove('hidden'); }
+function closeModal() {
+  document.getElementById('modal').classList.add('hidden');
+  document.getElementById('modal-name').value = '';
+  document.getElementById('modal-note').value = '';
+  document.getElementById('dz-content').innerHTML = '<div class="icon">📸</div><p>Arrastra una imagen de referencia o haz clic para seleccionar</p>';
+  radarImgData = null;
+}
+
+function previewRadarImg(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    radarImgData = ev.target.result;
+    document.getElementById('dz-content').innerHTML = `<img src="${radarImgData}">`;
+  };
+  reader.readAsDataURL(file);
+}
+
+function dragOver(e) { e.preventDefault(); document.getElementById('drop-zone').classList.add('dragover'); }
+function dragLeave() { document.getElementById('drop-zone').classList.remove('dragover'); }
+function dropFile(e) {
+  e.preventDefault();
+  dragLeave();
+  const file = e.dataTransfer.files[0];
+  if (!file || !file.type.startsWith('image/')) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    radarImgData = ev.target.result;
+    document.getElementById('dz-content').innerHTML = `<img src="${radarImgData}">`;
+  };
+  reader.readAsDataURL(file);
+}
+
+function addToRadar() {
+  const name = document.getElementById('modal-name').value.trim();
+  if (!name) { document.getElementById('modal-name').focus(); return; }
+  const item = {
+    id: Date.now(),
+    name,
+    note: document.getElementById('modal-note').value.trim(),
+    img: radarImgData,
+    date: new Date().toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })
+  };
+  radarItems.unshift(item);
+  localStorage.setItem('ds-radar', JSON.stringify(radarItems));
+  updateRadarBadge();
+  renderRadar();
+  closeModal();
+}
+
+function updateRadarBadge() {
+  document.getElementById('radar-badge').textContent = radarItems.length;
+}
+
+function renderRadar() {
+  const grid = document.getElementById('radar-grid');
+  if (radarItems.length === 0) {
+    grid.innerHTML = `<div class="radar-empty" style="grid-column:1/-1"><div class="icon">🔭</div><p>Aún no hay elementos en radar.<br>Agrega cosas que el equipo necesita y no están en la librería.</p></div>`;
+    return;
+  }
+  grid.innerHTML = radarItems.map(item => `
+    <div class="radar-card">
+      <div class="radar-img">${item.img ? `<img src="${item.img}">` : '🔭'}</div>
+      <div class="radar-body">
+        <div class="radar-name">${item.name}</div>
+        ${item.note ? `<div class="radar-note">${item.note}</div>` : ''}
+        <div class="radar-meta">Agregado ${item.date}</div>
+        <button onclick="askFromRadar('${item.name.replace(/'/g,"\\'")}',${item.id})" style="font-size:11px;color:var(--accent);background:none;border:none;cursor:pointer;margin-top:6px;font-family:var(--font);padding:0">Buscar en librería →</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function askFromRadar(name, id) {
+  switchTab('chat');
+  askQuick(`¿Tenemos algo parecido a "${name}" en la librería? Si no existe, confirma que está bien que esté en radar.`);
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', ['chat','library','radar'][i] === tab);
+  });
+  document.getElementById('tab-chat').classList.toggle('hidden', tab !== 'chat');
+  document.getElementById('tab-library').classList.toggle('hidden', tab !== 'library');
+  document.getElementById('tab-radar').classList.toggle('hidden', tab !== 'radar');
+  document.getElementById('sidebar').classList.toggle('hidden', tab !== 'chat');
+
+  if (tab === 'library' || tab === 'radar') {
+    document.querySelector('.main').style.gridTemplateColumns = '1fr';
+  } else {
+    document.querySelector('.main').style.gridTemplateColumns = '1fr 280px';
+  }
+}
+</script>
+</body>
+</html>
