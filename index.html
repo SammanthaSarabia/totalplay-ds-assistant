@@ -610,31 +610,53 @@ function addMessage(role, text, imgSrc = null) {
 }
 
 function formatMessage(text) {
-  return text
+  // First extract NODE tags with component info
+  const nodeRegex = /\[NODE:([^:]+):([^\]]+)\]/g;
+  
+  let result = text
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/`(.*?)`/g, '<code style="font-family:var(--mono);font-size:11px;background:var(--surface2);padding:1px 5px;border-radius:3px">$1</code>')
     .replace(/(https:\/\/www\.figma\.com\/[^\s<]+)/g, '<a href="$1" target="_blank" class="result-link">Ver en Figma →</a>')
-    .replace(/\[NODE:([^:]+):([^\]]+)\]/g, (match, fileId, nodeId) => {
-      const imgId = `img-${nodeId.replace(/[^a-z0-9]/gi,'_')}`;
-      const fileKey = fileId === UIKIT_FILE ? UIKIT_FILE : ICONS_FILE;
-      const figmaUrl = `https://www.figma.com/file/${fileKey}?node-id=${encodeURIComponent(nodeId)}`;
-      setTimeout(() => {
-        fetchComponentImage(fileKey, nodeId).then(url => {
-          const el = document.getElementById(imgId);
-          if (el && url) el.src = url;
-          else if (el) el.style.display = 'none';
-        });
-      }, 100);
-      return `<div class="result-card">
-        <div class="result-thumb"><img id="${imgId}" src="" style="width:100%;height:100%;object-fit:contain" onerror="this.style.display='none'"></div>
-        <div class="result-info">
-          <div class="result-name">${nodeId}</div>
-          <div class="result-sub">${fileId === UIKIT_FILE ? 'UI-Kit App' : 'Icons & Media'}</div>
-        </div>
-        <a href="${figmaUrl}" target="_blank" class="result-link">Ver →</a>
-      </div>`;
-    })
     .replace(/\n/g, '<br>');
+
+  // Replace NODE tags with component cards
+  result = result.replace(/\[NODE:([^:]+):([^\]]+)\]/g, (match, fileId, nodeId) => {
+    const cleanNodeId = nodeId.trim();
+    const imgElId = `img_${cleanNodeId.replace(/[^a-z0-9]/gi,'_')}`;
+    const fileKey = fileId.trim();
+    const isIcons = fileKey === ICONS_FILE;
+    const libName = isIcons ? 'Icons & Media' : 'UI-Kit App';
+    const figmaUrl = `https://www.figma.com/file/${fileKey}?node-id=${encodeURIComponent(cleanNodeId)}`;
+    
+    // Find component name from dsContext
+    const allItems = isIcons ? dsContext.icons : dsContext.components;
+    const found = allItems.find(c => c.id === cleanNodeId || c.id === cleanNodeId.replace('-',':'));
+    const compName = found ? found.name : cleanNodeId;
+
+    // Fetch image async
+    setTimeout(() => {
+      fetchComponentImage(fileKey, cleanNodeId).then(url => {
+        const el = document.getElementById(imgElId);
+        if (el && url) {
+          el.src = url;
+          el.style.background = 'transparent';
+        }
+      });
+    }, 200);
+
+    return `<div class="result-card">
+      <div class="result-thumb" style="background:var(--bg)">
+        <img id="${imgElId}" src="" style="width:100%;height:100%;object-fit:contain;border-radius:4px" onerror="this.parentElement.innerHTML='🖼️'">
+      </div>
+      <div class="result-info">
+        <div class="result-name">${compName}</div>
+        <div class="result-sub">${libName}</div>
+      </div>
+      <a href="${figmaUrl}" target="_blank" class="result-link">Ver →</a>
+    </div>`;
+  });
+
+  return result;
 }
 
 function addTyping() {
