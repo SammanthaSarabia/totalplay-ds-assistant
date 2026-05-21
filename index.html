@@ -10,26 +10,26 @@
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --brand-red: #E8003D;
-    --brand-orange: #FF6B00;
-    --brand-yellow: #FFD600;
-    --brand-green: #00B140;
-    --brand-blue: #0057B8;
-    --brand-purple: #7B2D8B;
-    --accent: #5838d0;
-    --accent-light: #EEEDFE;
-    --accent-text: #3C3489;
-    --bg: #f5f4f0;
+    --brand-red: #C2185B;
+    --brand-orange: #D81B60;
+    --brand-yellow: #E91E8C;
+    --brand-green: #F06292;
+    --brand-blue: #F48FB1;
+    --brand-purple: #FCE4EC;
+    --accent: #C2185B;
+    --accent-light: #FCE4EC;
+    --accent-text: #880E4F;
+    --bg: #fdf8f9;
     --surface: #ffffff;
-    --surface2: #f9f8f6;
-    --border: rgba(0,0,0,0.08);
-    --border2: rgba(0,0,0,0.14);
-    --text: #111;
-    --text2: #555;
-    --text3: #999;
-    --radar-bg: #FAEEDA;
-    --radar-border: #EF9F27;
-    --radar-text: #633806;
+    --surface2: #fef1f5;
+    --border: rgba(194,24,91,0.08);
+    --border2: rgba(194,24,91,0.16);
+    --text: #1a0a10;
+    --text2: #6b3a4a;
+    --text3: #b08090;
+    --radar-bg: #FFF3E0;
+    --radar-border: #FFB74D;
+    --radar-text: #E65100;
     --font: 'Montserrat', sans-serif;
     --mono: 'DM Mono', monospace;
     --radius: 10px;
@@ -530,7 +530,14 @@ function buildSystemPrompt() {
 
   return `Eres Diggi, el asistente del Design System de Totalplay. Ayudas a diseñadores y desarrolladores a encontrar componentes, íconos, colores y variables en las librerías de Figma.
 
-IMPORTANTE: Cuando encuentres un elemento, SIEMPRE incluye su ID en el formato [NODE:file_key:node_id] para que se pueda previsualizar. Busca exhaustivamente antes de decir que algo no existe.
+REGLA MÁS IMPORTANTE: Sé directo. Siempre muestra resultados primero. Solo pregunta si genuinamente no encuentras nada o si hay más de 5 coincidencias y necesitas afinar.
+
+COMPORTAMIENTO:
+- Si encuentras el elemento → muéstralo inmediatamente con [NODE:filekey:nodeid]
+- Si hay varias opciones → muestra las más relevantes (máximo 3) y pregunta al final si necesitan otra
+- Solo pide contexto adicional si no encuentras absolutamente nada relacionado
+- Nunca hagas preguntas antes de buscar
+- Respuestas cortas y directas
 
 LIBRERÍAS:
 - UI-Kit App: file key ${UIKIT_FILE}
@@ -545,11 +552,9 @@ ${iconList}
 VARIABLES:
 ${varList}
 
-FORMATO DE RESPUESTA: Cuando encuentres un componente o ícono, inclúyelo así:
-[NODE:${UIKIT_FILE}:node-id-aqui] para UI-Kit
-[NODE:${ICONS_FILE}:node-id-aqui] para Icons & Media
+FORMATO: Cuando encuentres un componente incluye [NODE:${UIKIT_FILE}:node-id] para UI-Kit o [NODE:${ICONS_FILE}:node-id] para Icons & Media.
 
-Responde en español. Sé directo y útil.`;
+Responde en español. Máximo 3-4 líneas de texto, el resto que sean cards de componentes.`;
 }
 
 async function callClaude(userText, imageBase64 = null) {
@@ -617,6 +622,9 @@ function formatMessage(text) {
   const nodeRegex = /\[NODE:([^:]+):([^\]]+)\]/g;
   
   let result = text
+    .replace(/^### (.*$)/gm, '<strong style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em">$1</strong>')
+    .replace(/^## (.*$)/gm, '<strong style="font-size:13px;color:var(--text)">$1</strong>')
+    .replace(/^# (.*$)/gm, '<strong style="font-size:14px;color:var(--text)">$1</strong>')
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/`(.*?)`/g, '<code style="font-family:var(--mono);font-size:11px;background:var(--surface2);padding:1px 5px;border-radius:3px">$1</code>')
     .replace(/(https:\/\/www\.figma\.com\/[^\s<]+)/g, '<a href="$1" target="_blank" class="result-link">Ver en Figma →</a>')
