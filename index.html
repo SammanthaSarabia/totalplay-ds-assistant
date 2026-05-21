@@ -535,6 +535,7 @@ REGLA MÁS IMPORTANTE: Sé directo. Siempre muestra resultados primero. Solo pre
 COMPORTAMIENTO:
 - Si encuentras el elemento → muéstralo inmediatamente con [NODE:filekey:nodeid]
 - Si hay varias opciones → muestra las más relevantes (máximo 3) y pregunta al final si necesitan otra
+- Si NO existe en la librería → incluye exactamente [RADAR:nombre del elemento] al final de tu respuesta para que el usuario pueda agregarlo fácilmente al radar
 - Solo pide contexto adicional si no encuentras absolutamente nada relacionado
 - Nunca hagas preguntas antes de buscar
 - Respuestas cortas y directas
@@ -552,9 +553,11 @@ ${iconList}
 VARIABLES:
 ${varList}
 
-FORMATO: Cuando encuentres un componente incluye [NODE:${UIKIT_FILE}:node-id] para UI-Kit o [NODE:${ICONS_FILE}:node-id] para Icons & Media.
+FORMATO: 
+- Componente encontrado: [NODE:${UIKIT_FILE}:node-id] o [NODE:${ICONS_FILE}:node-id]
+- Elemento no encontrado: [RADAR:nombre del elemento]
 
-Responde en español. Máximo 3-4 líneas de texto, el resto que sean cards de componentes.`;
+Responde en español. Máximo 3-4 líneas de texto, el resto que sean cards.`;
 }
 
 async function callClaude(userText, imageBase64 = null) {
@@ -667,6 +670,19 @@ function formatMessage(text) {
     </div>`;
   });
 
+  // Replace RADAR tags with add-to-radar button
+  result = result.replace(/\[RADAR:([^\]]+)\]/g, (match, itemName) => {
+    const name = itemName.trim();
+    const safeId = `radar_${Date.now()}_${Math.random().toString(36).substr(2,5)}`;
+    return `<div style="margin-top:10px;padding:10px 14px;background:var(--radar-bg);border:1px solid var(--radar-border);border-radius:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:600;color:var(--radar-text)">🔭 No está en la librería</div>
+        <div style="font-size:11px;color:var(--radar-text);opacity:0.8;margin-top:2px">${name}</div>
+      </div>
+      <button onclick="quickAddToRadar('${name.replace(/'/g,"\\'")}', this)" style="font-size:11px;font-weight:600;padding:6px 12px;border-radius:7px;border:none;background:var(--radar-border);color:#fff;cursor:pointer;font-family:var(--font);white-space:nowrap">+ Agregar al radar</button>
+    </div>`;
+  });
+
   return result;
 }
 
@@ -756,6 +772,31 @@ function clearImagePreview() {
   document.getElementById('img-preview-wrap').innerHTML = '';
 }
 
+function quickAddToRadar(name, btn) {
+  const priority = window.prompt(`Prioridad para "${name}":\n1 = Alta\n2 = Media\n3 = Baja\n\nEscribe 1, 2 o 3:`, '2');
+  if (!priority) return;
+  const priorityMap = { '1': '🔴 Alta', '2': '🟡 Media', '3': '🟢 Baja' };
+  const priorityLabel = priorityMap[priority] || '🟡 Media';
+
+  const item = {
+    id: Date.now(),
+    name,
+    note: `Solicitado desde el chat — ${priorityLabel}`,
+    img: null,
+    date: new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }),
+    priority: priorityLabel
+  };
+  radarItems.unshift(item);
+  localStorage.setItem('ds-radar', JSON.stringify(radarItems));
+  updateRadarBadge();
+  renderRadar();
+
+  // Update button to show success
+  btn.textContent = '✓ Agregado';
+  btn.style.background = '#00B140';
+  btn.disabled = true;
+}
+
 // ── Radar ─────────────────────────────────────────────────────────────────────
 let radarImgData = null;
 
@@ -826,8 +867,9 @@ function renderRadar() {
       <div class="radar-img">${item.img ? `<img src="${item.img}">` : '🔭'}</div>
       <div class="radar-body">
         <div class="radar-name">${item.name}</div>
+        ${item.priority ? `<div style="font-size:11px;margin-top:4px">${item.priority}</div>` : ''}
         ${item.note ? `<div class="radar-note">${item.note}</div>` : ''}
-        <div class="radar-meta">Agregado ${item.date}</div>
+        <div class="radar-meta">📅 ${item.date}</div>
         <button onclick="askFromRadar('${item.name.replace(/'/g,"\\'")}',${item.id})" style="font-size:11px;color:var(--accent);background:none;border:none;cursor:pointer;margin-top:6px;font-family:var(--font);padding:0">Buscar en librería →</button>
       </div>
     </div>
