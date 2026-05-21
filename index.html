@@ -402,8 +402,8 @@ async function loadFigmaData() {
   try {
     // Load UI-Kit variables & components in parallel
     const [uikitFile, iconsFile] = await Promise.all([
-      figmaGet(`/files/${UIKIT_FILE}?depth=2`),
-      figmaGet(`/files/${ICONS_FILE}?depth=2`)
+      figmaGet(`/files/${UIKIT_FILE}?depth=3`),
+      figmaGet(`/files/${ICONS_FILE}?depth=4`)
     ]);
 
     // Extract components from UI-Kit
@@ -439,10 +439,14 @@ async function loadFigmaData() {
     const iconsPills = document.getElementById('icons-pills');
     const iconGroups = {};
     iconsComponents.forEach(c => {
-      const group = c.name.split('/')[0] || 'otros';
+      const parts = c.name.split('/');
+      const group = parts[0].trim() || 'otros';
       iconGroups[group] = (iconGroups[group] || 0) + 1;
     });
-    iconsPills.innerHTML = Object.entries(iconGroups).slice(0,4).map(([k,v]) => `<span class="pill">${k} (${v})</span>`).join('');
+    const topGroups = Object.entries(iconGroups)
+      .sort((a,b) => b[1]-a[1])
+      .slice(0,5);
+    iconsPills.innerHTML = topGroups.map(([k,v]) => `<span class="pill">${k} (${v})</span>`).join('');
 
     renderLibraryView();
 
