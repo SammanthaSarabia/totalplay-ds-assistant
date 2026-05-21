@@ -401,9 +401,9 @@ async function figmaGet(path) {
 async function loadFigmaData() {
   try {
     // Load UI-Kit variables & components in parallel
-    const [uikitFile, iconsFile] = await Promise.all([
+    const [uikitFile, iconsRaw] = await Promise.all([
       figmaGet(`/files/${UIKIT_FILE}?depth=3`),
-      figmaGet(`/files/${ICONS_FILE}?depth=6`)
+      figmaGet(`/files/${ICONS_FILE}/components`)
     ]);
 
     // Extract components from UI-Kit
@@ -420,8 +420,10 @@ async function loadFigmaData() {
     const styles = await figmaGet(`/files/${UIKIT_FILE}/styles`);
     dsContext.styles = styles.meta?.styles || [];
 
-    // Extract icons/media components
-    const iconsComponents = extractComponents(iconsFile.document);
+    // Extract icons/media via /components endpoint — gets ALL
+    const iconsComponents = (iconsRaw.meta?.components || []).map(c => ({
+      id: c.node_id, name: c.name, type: 'COMPONENT', description: c.description || ''
+    }));
     dsContext.icons = iconsComponents;
 
     // Update UI
