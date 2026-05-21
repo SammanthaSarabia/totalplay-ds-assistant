@@ -403,7 +403,7 @@ async function loadFigmaData() {
     // Load UI-Kit variables & components in parallel
     const [uikitFile, iconsFile] = await Promise.all([
       figmaGet(`/files/${UIKIT_FILE}?depth=3`),
-      figmaGet(`/files/${ICONS_FILE}?depth=4`)
+      figmaGet(`/files/${ICONS_FILE}?depth=6`)
     ]);
 
     // Extract components from UI-Kit
@@ -516,38 +516,41 @@ function renderLibraryView() {
 
 // ── Claude API ────────────────────────────────────────────────────────────────
 function buildSystemPrompt() {
-  const compList = dsContext.components.slice(0,80).map(c => `- ${c.name}${c.description ? ': '+c.description : ''}`).join('\n');
-  const iconList = dsContext.icons.slice(0,80).map(c => `- ${c.name}`).join('\n');
-  const varList = dsContext.variables.slice(0,80).map(v => `- [${v.collection}] ${v.name} (${v.type})`).join('\n');
+  const compList = dsContext.components.slice(0,150).map(c => `- ${c.name}${c.description ? ': '+c.description : ''}`).join('\n');
+  const iconList = dsContext.icons.map(c => `- ${c.name}`).join('\n');
+  const varList = dsContext.variables.slice(0,100).map(v => `- [${v.collection}] ${v.name} (${v.type})`).join('\n');
   const styleList = dsContext.styles.slice(0,40).map(s => `- ${s.name}: ${s.style_type}`).join('\n');
 
   return `Eres el asistente del Design System de Totalplay. Ayudas a diseñadores y desarrolladores a encontrar componentes, íconos, colores y variables en las librerías de Figma.
+
+IMPORTANTE: Cuando el usuario pregunte por algo, busca exhaustivamente en TODAS las listas antes de decir que no existe. Usa búsqueda parcial — si alguien pide "crossmedia", busca cualquier elemento que contenga "cross", "media", "crossmedia" en su nombre.
 
 LIBRERÍAS DISPONIBLES:
 - UI-Kit App (file: ${UIKIT_FILE}) — componentes de UI, variables de diseño
 - Icons & Media (file: ${ICONS_FILE}) — íconos, logos, imágenes, covers
 
-COMPONENTES EN UI-KIT:
-${compList || 'Cargando...'}
+COMPONENTES EN UI-KIT (${dsContext.components.length} total):
+${compList}
 
-ELEMENTOS EN ICONS & MEDIA:
-${iconList || 'Cargando...'}
+TODOS LOS ELEMENTOS EN ICONS & MEDIA (${dsContext.icons.length} total):
+${iconList}
 
 VARIABLES:
-${varList || 'Cargando...'}
+${varList}
 
 ESTILOS:
-${styleList || 'Cargando...'}
+${styleList}
 
 INSTRUCCIONES:
 - Responde en español, de forma concisa y útil
-- Cuando encuentres un componente o elemento, incluye siempre el link a Figma en formato: https://www.figma.com/file/FILE_KEY?node-id=NODE_ID
+- SIEMPRE busca en toda la lista antes de decir que algo no existe
+- Cuando encuentres un elemento incluye el link: https://www.figma.com/file/FILE_KEY?node-id=NODE_ID
 - Para UI-Kit usa file key: ${UIKIT_FILE}
-- Para Icons & Media usa file key: ${ICONS_FILE}
-- Si el usuario sube una imagen, analiza qué elemento del DS se parece más a lo que muestra
-- Si algo no existe en la librería, dilo claramente y sugiere agregarlo a "En radar"
-- Para preguntas de tokens de color, da el nombre semántico (color/primary) y el valor resuelto
-- Sé directo: si existe, di dónde está; si no existe, dilo`;
+- Para Icons & Media usa file key: ${ICONS_FILE}  
+- Si el usuario sube una imagen, analiza qué elemento del DS se parece más
+- Si algo genuinamente no existe, dilo claramente y sugiere agregarlo a "En radar"
+- Para tokens de color, da el nombre semántico y el valor resuelto
+- Nunca inventes elementos que no estén en las listas — pero busca bien antes de negar`;
 }
 
 async function callClaude(userText, imageBase64 = null) {
